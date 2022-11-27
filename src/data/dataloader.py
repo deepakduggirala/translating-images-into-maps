@@ -151,7 +151,7 @@ class nuScenesMaps(Dataset):
         calib = to_tensor(calib).reshape(3, 3)
 
         # Load ground truth maps
-        gtmaps_key = [pickle.dumps("{}___{}".format(id, cls)) for cls in self.classes]
+        gtmaps_key = [pickle.dumps("{}___{}".format(id, cls), 3) for cls in self.classes]
         with self.gtmaps_db.begin() as txn:
             value = [txn.get(key=key) for key in gtmaps_key]
             gtmaps = [Image.open(io.BytesIO(im)) for im in value]
