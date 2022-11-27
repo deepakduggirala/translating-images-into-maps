@@ -1,0 +1,7 @@
+pytorch
+opencv
+numpy
+pyquaternion
+shapely
+lmdb
+nuscenes-devkit

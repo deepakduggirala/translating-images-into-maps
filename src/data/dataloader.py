@@ -84,13 +84,13 @@ class nuScenesMaps(Dataset):
             max_spare_txns=128,
             lock=False,
         )
-        self.images_db = lmdb.open(
-            path=self.images_db_path,
-            readonly=True,
-            readahead=False,
-            max_spare_txns=128,
-            lock=False,
-        )
+        # self.images_db = lmdb.open(
+        #     path=self.images_db_path,
+        #     readonly=True,
+        #     readahead=False,
+        #     max_spare_txns=128,
+        #     lock=False,
+        # )
 
         # Set classes
         self.classes = list(classes)
@@ -122,8 +122,6 @@ class nuScenesMaps(Dataset):
         return int(len(self.tokens) * self.dataset_size - 1)
 
     def __getitem__(self, index):
-
-
         # Load sample ID
         sample_token = self.tokens[index]
         sample_record = self.nusc.get("sample", sample_token)
@@ -139,10 +137,13 @@ class nuScenesMaps(Dataset):
         calib = np.array(calib)
 
         # Load input images
-        image_input_key = pickle.dumps(id)
-        with self.images_db.begin() as txn:
-            value = txn.get(key=image_input_key)
-            image = Image.open(io.BytesIO(value)).convert(mode='RGB')
+        # image_input_key = pickle.dumps(id)
+        # with self.images_db.begin() as txn:
+        #     value = txn.get(key=image_input_key)
+        #     image = Image.open(io.BytesIO(value)).convert(mode='RGB')
+        original_nusenes_dir = Path.resolve(Path('../v1.0-mini/samples/CAM_FRONT'))
+        new_cam_path = original_nusenes_dir / Path(cam_path).name
+        image = Image.open(new_cam_path).convert(mode='RGB')
 
         # resize/augment images
         image, calib = self.image_calib_pad_and_crop(image, calib)
