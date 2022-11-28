@@ -934,7 +934,7 @@ def main():
         # Run validation every N epochs
         if epoch % args.val_interval == 0:
             # Save model checkpoint
-            # save_checkpoint(args, epoch, model, optimizer, scheduler)
+            save_checkpoint(args, epoch, model, optimizer, scheduler)
             validate(args, val_loader, model, epoch)
 
         # Update and log learning rate
