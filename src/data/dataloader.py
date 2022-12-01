@@ -137,7 +137,7 @@ class nuScenesMaps(Dataset):
         calib = np.array(calib)
 
         # Load input images
-        # image_input_key = pickle.dumps(id)
+        # image_input_key = pickle.dumps(id, 3)
         # with self.images_db.begin() as txn:
         #     value = txn.get(key=image_input_key)
         #     image = Image.open(io.BytesIO(value)).convert(mode='RGB')
