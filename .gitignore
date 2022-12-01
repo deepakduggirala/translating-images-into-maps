@@ -3,5 +3,5 @@ nuscenes_data
 __pycache__
 .ipynb_checkpoints
 *.ipynb
-.idea
+!notebooks/*.ipynb
 experiments
