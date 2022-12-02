@@ -778,7 +778,7 @@ def main():
 
     # Parse command line arguments
     args = parse_args()
-    args.root = os.path.join(os.getcwd(), args.root)
+    # args.root = os.path.join(os.getcwd(), args.root)
     print(args.root)
     args.savedir = os.path.join(os.getcwd(), args.savedir)
     print(args.savedir)
@@ -809,7 +809,7 @@ def main():
         classes=args.load_classes_nusc,
         dataset_size=args.data_size,
         desired_image_size=args.desired_image_size,
-        mini=True,
+        mini=False,
         gt_out_size=(100, 100),
     )
     print("loading val data")
@@ -821,7 +821,7 @@ def main():
         classes=args.load_classes_nusc,
         dataset_size=args.data_size,
         desired_image_size=args.desired_image_size,
-        mini=True,
+        mini=False,
         gt_out_size=(200, 200),
     )
 
