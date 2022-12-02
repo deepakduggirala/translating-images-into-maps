@@ -5,3 +5,4 @@ __pycache__
 *.ipynb
 !notebooks/*.ipynb
 experiments
+job_logs
