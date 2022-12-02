@@ -1,5 +1,6 @@
 import io
 from pathlib import Path
+import time
 
 import lmdb
 from PIL import Image
@@ -33,6 +34,7 @@ def get_key_value_bytes(nusc, sample_token):
     return key_bytes, im_bytes
 
 def write_images_to_lmdb(tokens, nusc, path, map_size):
+    start = time.perf_counter()
     print(path)
     total_bytes = 0
     with lmdb.open(path=path, map_size=map_size) as images_db:
@@ -41,16 +43,23 @@ def write_images_to_lmdb(tokens, nusc, path, map_size):
                 key, value = get_key_value_bytes(nusc, sample_token)
                 total_bytes += len(key) + len(value)
                 txn.put(key, value)
-                if (i + 1) % 30 == 0:
-                    print(f'{i + 1} images put into lmdb. {total_bytes / (1024 * 1024 * 1024):.2f} GB written.')
+                if (i + 1) % 10 == 0:
+                    print(f'{i + 1} images put into lmdb. {total_bytes / (1024 * 1024 * 1024):.2f} GB written.', int(time.perf_counter()-start), 'sec')
 
 def main_trainval():
+    start = time.perf_counter()
+
     data_root = Path.resolve(Path('/N/slate/deduggi/nuScenes-trainval'))
     nusc = NuScenes(version='v1.0-trainval', dataroot=data_root, verbose=False)
+    print('v1.0-trainval loaded', int(time.perf_counter()-start), 'sec')
+    
+    start = time.perf_counter()
     image_db_path = data_root / Path('lmdb/samples/CAM_FRONT')
     image_db_path.mkdir(parents=True, exist_ok=True)
     image_db_map_size = int(100 * 1024 * 1024 * 1024)
     sample_tokens = [sample['token'] for sample in nusc.sample]
+    print('number of samples', len(sample_tokens), int(time.perf_counter()-start), 'sec')
+    
     write_images_to_lmdb(sample_tokens, nusc, str(image_db_path), image_db_map_size)
 
 # def main_test():
@@ -63,7 +72,7 @@ def main_trainval():
 #     write_images_to_lmdb(sample_tokens, nusc, str(image_db_path), image_db_map_size)
 
 def main_mini():
-    data_root = Path.resolve(Path('/Users/deepakduggirala/Documents/autonomous-robotics/v1.0-mini'))
+    data_root = Path.resolve(Path('/N/u/deduggi/Carbonate/autonomous-robotics/translating-images-into-maps/nuscenes_data'))
     nusc = NuScenes(version='v1.0-mini', dataroot=data_root, verbose=False)
     image_db_path = data_root / Path('lmdb/samples/CAM_FRONT')
     image_db_path.mkdir(parents=True, exist_ok=True)
@@ -72,4 +81,5 @@ def main_mini():
     write_images_to_lmdb(sample_tokens, nusc, str(image_db_path), image_db_map_size)
 
 if __name__=='__main__':
-    main_mini()
+    # main_mini()
+    main_trainval()
