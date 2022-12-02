@@ -128,7 +128,7 @@ class nuScenesMaps(Dataset):
         cam_token = sample_record["data"]["CAM_FRONT"]
         cam_record = self.nusc.get("sample_data", cam_token)
         cam_path = self.nusc.get_sample_data_path(cam_token)
-        id = Path(cam_path).stem
+        cam_id = Path(cam_path).stem
 
         # Load intrinsincs
         calib = self.nusc.get(
@@ -137,7 +137,8 @@ class nuScenesMaps(Dataset):
         calib = np.array(calib)
 
         # Load input images
-        image_input_key = pickle.dumps(id, 3)
+        # image_input_key = pickle.dumps(cam_id, 3)
+        image_input_key = cam_id.encode('utf-8')
         with self.images_db.begin() as txn:
             value = txn.get(key=image_input_key)
             image = Image.open(io.BytesIO(value)).convert(mode='RGB')
@@ -151,7 +152,7 @@ class nuScenesMaps(Dataset):
         calib = to_tensor(calib).reshape(3, 3)
 
         # Load ground truth maps
-        gtmaps_key = [pickle.dumps("{}___{}".format(id, cls), 3) for cls in self.classes]
+        gtmaps_key = [pickle.dumps("{}___{}".format(cam_id, cls), 3) for cls in self.classes]
         with self.gtmaps_db.begin() as txn:
             value = [txn.get(key=key) for key in gtmaps_key]
             gtmaps = [Image.open(io.BytesIO(im)) for im in value]
