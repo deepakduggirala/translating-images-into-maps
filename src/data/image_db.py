@@ -1,3 +1,5 @@
+import os
+import sys
 import io
 from pathlib import Path
 import time
@@ -38,15 +40,15 @@ def write_images_to_lmdb(tokens, nusc, path, map_size):
     print(path)
     total_bytes = 0
     with lmdb.open(path=path, map_size=map_size) as images_db:
-        with images_db.begin(write=True) as txn:
-            for i, sample_token in enumerate(tokens):
+        for i, sample_token in enumerate(tokens):
+            with images_db.begin(write=True) as txn:
                 key, value = get_key_value_bytes(nusc, sample_token)
                 total_bytes += len(key) + len(value)
                 txn.put(key, value)
-                if (i + 1) % 10 == 0:
-                    print(f'{i + 1} images put into lmdb. {total_bytes / (1024 * 1024 * 1024):.2f} GB written.', int(time.perf_counter()-start), 'sec')
+            if (i + 1) % 10 == 0:
+                print(f'{i + 1} images put into lmdb. {total_bytes / (1024 * 1024 * 1024):.2f} GB written.', int(time.perf_counter()-start), 'sec')
 
-def main_trainval():
+def main_trainval(i):
     start = time.perf_counter()
 
     data_root = Path.resolve(Path('/N/slate/deduggi/nuScenes-trainval'))
@@ -54,10 +56,12 @@ def main_trainval():
     print('v1.0-trainval loaded', int(time.perf_counter()-start), 'sec')
     
     start = time.perf_counter()
-    image_db_path = data_root / Path('lmdb/samples/CAM_FRONT')
+    image_db_path = data_root / Path(f'lmdb/samples/CAM_FRONT_{i+1}')
     image_db_path.mkdir(parents=True, exist_ok=True)
-    image_db_map_size = int(100 * 1024 * 1024 * 1024)
-    sample_tokens = [sample['token'] for sample in nusc.sample]
+    print('writing to', image_db_path)
+
+    image_db_map_size = int(15 * 1024 * 1024 * 1024)
+    sample_tokens = [sample['token'] for sample in nusc.sample][i*7000:(i+1)*7000]
     print('number of samples', len(sample_tokens), int(time.perf_counter()-start), 'sec')
     
     write_images_to_lmdb(sample_tokens, nusc, str(image_db_path), image_db_map_size)
@@ -82,4 +86,5 @@ def main_mini():
 
 if __name__=='__main__':
     # main_mini()
-    main_trainval()
+    i = int(sys.argv[1])
+    main_trainval(i)
