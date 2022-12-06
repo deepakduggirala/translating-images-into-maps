@@ -10,6 +10,8 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+import matplotlib as mpl
+from matplotlib import pyplot as plt
 from torch import optim
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
@@ -19,6 +21,62 @@ import src.data.collate_funcs
 import src.model.network as networks
 from src.data.dataloader import nuScenesMaps
 from src.utils import MetricDict
+
+
+def visualize_score(scores, heatmaps, grid, image, iou, num_classes):
+    # Condese scores and ground truths to single map
+    class_idx = torch.arange(len(scores)) + 1
+    logits = scores.clone().cpu() * class_idx.view(-1, 1, 1)
+    logits, _ = logits.max(dim=0)
+    scores = (scores.detach().clone().cpu() > 0.5).float() * class_idx.view(-1, 1, 1)
+    scores, _ = scores.max(dim=0)
+    heatmaps = (heatmaps.detach().clone().cpu() > 0.5).float() * class_idx.view(
+        -1, 1, 1
+    )
+    heatmaps, _ = heatmaps.max(dim=0)
+
+    # Visualize score
+    fig = plt.figure(num="score", figsize=(8, 6))
+    fig.clear()
+
+    gs = mpl.gridspec.GridSpec(2, 3, figure=fig)
+    ax1 = fig.add_subplot(gs[0, :])
+    ax2 = fig.add_subplot(gs[1, 0])
+    ax3 = fig.add_subplot(gs[1:, 1])
+    ax4 = fig.add_subplot(gs[1:, 2])
+
+    image = ax1.imshow(image)
+    ax1.grid(which="both")
+    src.visualization.encoded.vis_score_raw(logits, grid, cmap="magma", ax=ax2)
+    src.vis_score(scores, grid, cmap="magma", ax=ax3, num_classes=num_classes)
+    src.vis_score(heatmaps, grid, cmap="magma", ax=ax4, num_classes=num_classes)
+
+    grid = grid.cpu().detach().numpy()
+    yrange = np.arange(grid[:, 0].max(), step=5)
+    xrange = np.arange(start=grid[0, :].min(), stop=grid[0, :].max(), step=5)
+    ymin, ymax = 0, grid[:, 0].max()
+    xmin, xmax = grid[0, :].min(), grid[0, :].max()
+
+    ax2.vlines(xrange, ymin, ymax, color="white", linewidth=0.5)
+    ax2.hlines(yrange, xmin, xmax, color="white", linewidth=0.5)
+    ax3.vlines(xrange, ymin, ymax, color="white", linewidth=0.5)
+    ax3.hlines(yrange, xmin, xmax, color="white", linewidth=0.5)
+    ax4.vlines(xrange, ymin, ymax, color="white", linewidth=0.5)
+    ax4.hlines(yrange, xmin, xmax, color="white", linewidth=0.5)
+
+    ax1.set_title("Input image", size=11)
+    ax2.set_title("Model output logits", size=11)
+    ax3.set_title("Model prediction = logits" + r"$ > 0.5$", size=11)
+    ax4.set_title("Ground truth", size=11)
+
+    # plt.suptitle(
+    #     "IoU : {:.2f}".format(iou), size=14,
+    # )
+
+    gs.tight_layout(fig)
+    gs.update(top=0.9)
+
+    return fig
 
 
 def validate(args, dataloader, model, epoch=0):
@@ -437,7 +495,7 @@ def parse_args():
 
     # ------------------------- Training options ------------------------- #
     parser.add_argument(
-        "-e", "--epochs", type=int, default=600, help="number of epochs to train for"
+        "-e", "--epochs", type=int, default=40, help="number of epochs to train for"
     )
     parser.add_argument(
         "-b", "--batch-size", type=int, default=8, help="mini-batch size for training"
