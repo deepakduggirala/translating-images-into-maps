@@ -1,9 +1,10 @@
 import argparse
 import json
 import os
+import time
 from argparse import ArgumentParser
 from collections import OrderedDict
-from datetime import datetime
+from datetime import datetime, timedelta
 
 import numpy as np
 import torch
@@ -27,7 +28,7 @@ def validate(args, dataloader, model, epoch=0):
     epoch_iou = MetricDict()
     epoch_loss_per_class = MetricDict()
     num_classes = len(args.pred_classes_nusc)
-    times = []
+    t = time.perf_counter()
 
     for i, ((image, calib, grid2d), (cls_map, vis_mask)) in enumerate(dataloader):
         # Move tensors to GPU
@@ -72,6 +73,19 @@ def validate(args, dataloader, model, epoch=0):
 
             epoch_iou += iou_dict
             epoch_loss_per_class += per_class_loss_dict
+
+            # Print summary
+            batch_time = (time.perf_counter() - t) / (1 if i == 0 else args.accumulation_steps)
+            eta = (len(dataloader) - i) * batch_time
+
+            s = "[Val: {:4d}/{:4d}] batch_time: {:.2f}s eta: {:s}".format(
+                i, len(dataloader), batch_time, str(timedelta(seconds=int(eta)))
+            )
+
+            with open(os.path.join(args.savedir, args.name, "individual_val_output.txt"), "a") as fp:
+                fp.write(s + '\n')
+            print(s)
+            t = time.perf_counter()
 
             # Visualize predictions
             # if epoch % args.val_interval * 4 == 0 and i % 50 == 0:
@@ -122,7 +136,7 @@ def validate(args, dataloader, model, epoch=0):
     )
     total_loss = ms_loss_per_class.mean(axis=1).sum()
 
-    with open(os.path.join(args.savedir, args.name, "val_loss.txt"), "a") as f:
+    with open(os.path.join(args.savedir, args.name, "individual_val_loss.txt"), "a") as f:
         f.write("\n")
         f.write(
             "{},".format(epoch)
@@ -130,7 +144,7 @@ def validate(args, dataloader, model, epoch=0):
             + "".join("{},".format(v) for v in ms_mean_iou)
         )
 
-    with open(os.path.join(args.savedir, args.name, "val_ious.txt"), "a") as f:
+    with open(os.path.join(args.savedir, args.name, "individual_val_ious.txt"), "a") as f:
         f.write("\n")
         f.write(
             "Epoch: {},\n".format(epoch)
@@ -498,39 +512,6 @@ def str2bool(v):
         raise argparse.ArgumentTypeError("Boolean value expected.")
 
 
-def _make_experiment(args):
-    print("\n" + "#" * 80)
-    print(datetime.now().strftime("%A %-d %B %Y %H:%M"))
-    print(
-        "Creating experiment '{}' in directory:\n  {}".format(args.name, args.savedir)
-    )
-    print("#" * 80)
-    print("\nConfig:")
-    for key in sorted(args.__dict__):
-        print("  {:12s} {}".format(key + ":", args.__dict__[key]))
-    print("#" * 80)
-
-    # Create a new directory for the experiment
-    savedir = os.path.join(args.savedir, args.name)
-    os.makedirs(savedir, exist_ok=True)
-
-    # # Create tensorboard summary writer
-    summary = SummaryWriter(savedir)
-
-    # # Save configuration to file
-    with open(os.path.join(savedir, "config.json"), "w") as fp:
-        json.dump(args.__dict__, fp)
-
-    # # Write config as a text summary
-    # summary.add_text(
-    #     "config",
-    #     "\n".join("{:12s} {}".format(k, v) for k, v in sorted(args.__dict__.items())),
-    # )
-    # summary.file_writer.flush()
-
-    return None
-
-
 def main():
     # Parse command line arguments
     args = parse_args()
@@ -553,7 +534,7 @@ def main():
     args.num_gpu = num_gpus
 
     ### Create experiment ###
-    summary = _make_experiment(args)
+    # summary = _make_experiment(args)
 
     print("loading val data")
     val_data = nuScenesMaps(
@@ -650,7 +631,7 @@ def main():
         optimizer.load_state_dict(ckpt["optim"])
         scheduler.load_state_dict(ckpt["scheduler"])
         epoch_ckpt = ckpt["epoch"] + 1
-        print("starting training from {}".format(checkpt_fn[-1]))
+        print("validating {}".format(checkpt_fn[-1]))
     else:
         epoch_ckpt = 1
         pass
