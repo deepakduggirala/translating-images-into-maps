@@ -1,13 +1,10 @@
+import argparse
 import json
 import os
-import time
 from argparse import ArgumentParser
 from collections import OrderedDict
-from datetime import datetime, timedelta
+from datetime import datetime
 
-import matplotlib as mpl
-import matplotlib.font_manager as font_manager
-import matplotlib.pyplot as plt
 import numpy as np
 import torch
 import torch.nn as nn
@@ -22,142 +19,8 @@ import src.model.network as networks
 from src.data.dataloader import nuScenesMaps
 from src.utils import MetricDict
 
-mpl.rcParams["font.family"] = "serif"
-cmfont = font_manager.FontProperties(fname=mpl.get_data_path() + "/fonts/ttf/cmr10.ttf")
-mpl.rcParams["font.serif"] = cmfont.get_name()
-mpl.rcParams["mathtext.fontset"] = "cm"
-mpl.rcParams["axes.unicode_minus"] = False
-plt.rcParams["axes.grid"] = True
 
-
-def train(args, dataloader, model, optimizer, epoch):
-    print("\n==> Training on {} minibatches".format(len(dataloader)))
-    model.train()
-    epoch_loss = MetricDict()
-    epoch_loss_per_class = MetricDict()
-    batch_acc_loss = MetricDict()
-    epoch_iou = MetricDict()
-    t = time.time()
-    num_classes = len(args.pred_classes_nusc)
-
-    for i, ((image, calib, grid2d), (cls_map, vis_mask)) in enumerate(dataloader):
-
-        # Move tensors to GPU
-        image, calib, cls_map, vis_mask, grid2d = (
-            image.cuda(),
-            calib.cuda(),
-            cls_map.cuda(),
-            vis_mask.cuda(),
-            grid2d.cuda(),
-        )
-
-        # Run network forwards
-        pred_ms = model(image, calib, grid2d)
-
-        # Convert ground truths to binary mask
-        gt_s1 = (cls_map > 0).float()
-        visibility_mask_s1 = (vis_mask > 0).float()
-
-        # Downsample to match model outputs
-        map_sizes = [pred.shape[-2:] for pred in pred_ms]
-        gt_ms = src.utils.downsample_gt(gt_s1, map_sizes)
-        vis_ms = src.utils.downsample_gt(visibility_mask_s1, map_sizes)
-
-        # Compute losses for backprop
-        loss, loss_dict = compute_loss(pred_ms, gt_ms, args.loss, args)
-
-        # Calculate gradients
-        loss.backward()
-
-        # Compute IoU
-        iou_per_sample, iou_dict = src.utils.compute_multiscale_iou(
-            pred_ms, gt_ms, vis_ms, num_classes
-        )
-        # Compute per class loss for eval
-        per_class_loss_dict = src.utils.compute_multiscale_loss_per_class(
-            pred_ms, gt_ms,
-        )
-
-        if float(loss) != float(loss):
-            raise RuntimeError("Loss diverged :(")
-
-        epoch_loss += loss_dict
-        epoch_loss_per_class += per_class_loss_dict
-        batch_acc_loss += loss_dict
-        epoch_iou += iou_dict
-
-        if (i + 1) % args.accumulation_steps == 0:
-            optimizer.step()
-            optimizer.zero_grad()
-
-            # Print summary
-            batch_time = (time.time() - t) / (1 if i == 0 else args.accumulation_steps)
-            eta = ((args.epochs - epoch + 1) * len(dataloader) - i) * batch_time
-
-            s = "[Epoch: {} {:4d}/{:4d}] batch_time: {:.2f}s eta: {:s} loss: ".format(
-                epoch, i, len(dataloader), batch_time, str(timedelta(seconds=int(eta)))
-            )
-            for k, v in batch_acc_loss.mean.items():
-                s += "{}: {:.2e} ".format(k, v)
-
-            with open(os.path.join(args.savedir, args.name, "output.txt"), "a") as fp:
-                fp.write(s + '\n')
-            print(s)
-            t = time.time()
-
-            batch_acc_loss = MetricDict()
-
-    # Calculate per class IoUs over set
-    scales = [pred.shape[-1] for pred in pred_ms]
-    ms_cumsum_iou_per_class = torch.stack(
-        [epoch_iou["s{}_iou_per_class".format(scale)] for scale in scales]
-    )
-    ms_count_per_class = torch.stack(
-        [epoch_iou["s{}_class_count".format(scale)] for scale in scales]
-    )
-    ms_ious_per_class = (
-        (ms_cumsum_iou_per_class / (ms_count_per_class + 1)).cpu().numpy()
-    )
-    ms_mean_iou = ms_ious_per_class.mean(axis=1)
-
-    # Calculate per class loss over set
-    ms_cumsum_loss_per_class = torch.stack(
-        [epoch_loss_per_class["s{}_loss_per_class".format(scale)] for scale in scales]
-    )
-    ms_loss_per_class = (
-        (ms_cumsum_loss_per_class / (ms_count_per_class + 1)).cpu().numpy()
-    )
-    total_loss = ms_loss_per_class.mean(axis=1).sum()
-
-    # Print epoch summary and save results
-    print("==> Training epoch complete")
-    for key, value in epoch_loss.mean.items():
-        print("{:8s}: {:.4e}".format(key, value))
-
-    with open(os.path.join(args.savedir, args.name, "train_loss.txt"), "a") as f:
-        f.write("\n")
-        f.write(
-            "{},".format(epoch)
-            + "{},".format(float(total_loss))
-            + "".join("{},".format(v) for v in ms_mean_iou)
-        )
-    with open(os.path.join(args.savedir, args.name, "train_ious.txt"), "a") as f:
-        f.write("\n")
-        f.write(
-            "Epoch: {}, \n".format(epoch)
-            + "Total Loss: {}, \n".format(float(total_loss))
-            + "".join(
-                "s{}_ious_per_class: {}, \n".format(s, v)
-                for s, v in zip(scales, ms_ious_per_class)
-            )
-            + "".join(
-                "s{}_loss_per_class: {}, \n".format(s, v)
-                for s, v in zip(scales, ms_loss_per_class)
-            )
-        )
-
-
-def validate(args, dataloader, model, epoch):
+def validate(args, dataloader, model, epoch=0):
     print("\n==> Validating on {} minibatches\n".format(len(dataloader)))
     model.eval()
     epoch_loss = MetricDict()
@@ -281,86 +144,6 @@ def validate(args, dataloader, model, epoch):
                 for s, v in zip(scales, ms_loss_per_class)
             )
         )
-
-
-def compute_loss(preds, labels, loss_name, args):
-    scale_idxs = torch.arange(len(preds)).int()
-
-    # Dice loss across classes at multiple scales
-    ms_loss = torch.stack(
-        [
-            src.model.loss.__dict__[loss_name](pred, label, idx_scale, args)
-            for pred, label, idx_scale in zip(preds, labels, scale_idxs)
-        ]
-    )
-
-    if "90" not in args.model_name:
-        total_loss = torch.sum(ms_loss[3:]) + torch.mean(ms_loss[:3])
-    else:
-        total_loss = torch.sum(ms_loss)
-
-    # Store losses in dict
-    total_loss_dict = {
-        "loss": float(total_loss),
-    }
-
-    return total_loss, total_loss_dict
-
-
-def visualize_score(scores, heatmaps, grid, image, iou, num_classes):
-    # Condese scores and ground truths to single map
-    class_idx = torch.arange(len(scores)) + 1
-    logits = scores.clone().cpu() * class_idx.view(-1, 1, 1)
-    logits, _ = logits.max(dim=0)
-    scores = (scores.detach().clone().cpu() > 0.5).float() * class_idx.view(-1, 1, 1)
-    scores, _ = scores.max(dim=0)
-    heatmaps = (heatmaps.detach().clone().cpu() > 0.5).float() * class_idx.view(
-        -1, 1, 1
-    )
-    heatmaps, _ = heatmaps.max(dim=0)
-
-    # Visualize score
-    fig = plt.figure(num="score", figsize=(8, 6))
-    fig.clear()
-
-    gs = mpl.gridspec.GridSpec(2, 3, figure=fig)
-    ax1 = fig.add_subplot(gs[0, :])
-    ax2 = fig.add_subplot(gs[1, 0])
-    ax3 = fig.add_subplot(gs[1:, 1])
-    ax4 = fig.add_subplot(gs[1:, 2])
-
-    image = ax1.imshow(image)
-    ax1.grid(which="both")
-    src.visualization.encoded.vis_score_raw(logits, grid, cmap="magma", ax=ax2)
-    src.vis_score(scores, grid, cmap="magma", ax=ax3, num_classes=num_classes)
-    src.vis_score(heatmaps, grid, cmap="magma", ax=ax4, num_classes=num_classes)
-
-    grid = grid.cpu().detach().numpy()
-    yrange = np.arange(grid[:, 0].max(), step=5)
-    xrange = np.arange(start=grid[0, :].min(), stop=grid[0, :].max(), step=5)
-    ymin, ymax = 0, grid[:, 0].max()
-    xmin, xmax = grid[0, :].min(), grid[0, :].max()
-
-    ax2.vlines(xrange, ymin, ymax, color="white", linewidth=0.5)
-    ax2.hlines(yrange, xmin, xmax, color="white", linewidth=0.5)
-    ax3.vlines(xrange, ymin, ymax, color="white", linewidth=0.5)
-    ax3.hlines(yrange, xmin, xmax, color="white", linewidth=0.5)
-    ax4.vlines(xrange, ymin, ymax, color="white", linewidth=0.5)
-    ax4.hlines(yrange, xmin, xmax, color="white", linewidth=0.5)
-
-    ax1.set_title("Input image", size=11)
-    ax2.set_title("Model output logits", size=11)
-    ax3.set_title("Model prediction = logits" + r"$ > 0.5$", size=11)
-    ax4.set_title("Ground truth", size=11)
-
-    # plt.suptitle(
-    #     "IoU : {:.2f}".format(iou), size=14,
-    # )
-
-    gs.tight_layout(fig)
-    gs.update(top=0.9)
-
-    return fig
 
 
 def parse_args():
@@ -748,20 +531,6 @@ def _make_experiment(args):
     return None
 
 
-def save_checkpoint(args, epoch, model, optimizer, scheduler):
-    ckpt = {
-        "epoch": epoch,
-        "model": model.state_dict(),
-        "optim": optimizer.state_dict(),
-        "scheduler": scheduler.state_dict(),
-    }
-    ckpt_file = os.path.join(
-        args.savedir, args.name, "checkpoint-{:04d}.pth.gz".format(epoch)
-    )
-    print("==> Saving checkpoint '{}'".format(ckpt_file))
-    torch.save(ckpt, ckpt_file)
-
-
 def main():
     # Parse command line arguments
     args = parse_args()
@@ -786,19 +555,6 @@ def main():
     ### Create experiment ###
     summary = _make_experiment(args)
 
-    print("loading train data")
-    # Create datasets
-    train_data = nuScenesMaps(
-        root=args.root,
-        split=args.train_split,
-        grid_size=args.grid_size,
-        grid_res=args.grid_res,
-        classes=args.load_classes_nusc,
-        dataset_size=args.data_size,
-        desired_image_size=args.desired_image_size,
-        mini=False,
-        gt_out_size=(100, 100),
-    )
     print("loading val data")
     val_data = nuScenesMaps(
         root=args.root,
@@ -812,16 +568,6 @@ def main():
         gt_out_size=(200, 200),
     )
 
-    # Create dataloaders
-    train_loader = DataLoader(
-        train_data,
-        batch_size=args.batch_size,
-        shuffle=True,
-        num_workers=1,
-        collate_fn=src.data.collate_funcs.collate_nusc_s,
-        drop_last=True,
-        pin_memory=True
-    )
     val_loader = DataLoader(
         val_data,
         batch_size=args.batch_size,
@@ -913,21 +659,7 @@ def main():
     torch.backends.cudnn.benchmark = True
     torch.backends.cudnn.enabled = True
 
-    for epoch in range(epoch_ckpt, args.epochs + 1):
-
-        print("\n=== Beginning epoch {} of {} ===".format(epoch, args.epochs))
-
-        # # Train model
-        train(args, train_loader, model, optimizer, epoch)
-
-        # Run validation every N epochs
-        if epoch % args.val_interval == 0:
-            # Save model checkpoint
-            save_checkpoint(args, epoch, model, optimizer, scheduler)
-            validate(args, val_loader, model, epoch)
-
-        # Update and log learning rate
-        scheduler.step()
+    validate(args, val_loader, model)
 
 
 if __name__ == "__main__":
