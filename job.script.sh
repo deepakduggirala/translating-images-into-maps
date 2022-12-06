@@ -10,11 +10,11 @@
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=1
 #SBATCH --gpus-per-node v100:4
-#SBATCH --time=7:00:00
-#SBATCH --mem=50gb
+#SBATCH --time=47:59:00
+#SBATCH --mem=55gb
 
 #Load any modules that your program needs
-module load deeplearning/2.9.1
+module load deeplearning/2.10.0
 
 #Run your program
-python train.py --name "tiim_$(date +%F_%H-%M-%S)" --val-interval 100
+python train.py --name "tiim_28k" --val-interval 1 --root="/N/slate/deduggi/nuScenes-trainval" --train-split="train_roddick" --val-split="val_roddick" --data-size=1 --epochs=20 --batch-size=8 --accumulation-steps=1

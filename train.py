@@ -101,7 +101,7 @@ def train(args, dataloader, model, optimizer, epoch):
             optimizer.zero_grad()
 
             # Print summary
-            batch_time = (time.time() - t) / (1 if i == 0 else args.print_iter)
+            batch_time = (time.time() - t) / (1 if i == 0 else args.accumulation_steps)
             eta = ((args.epochs - epoch + 1) * len(dataloader) - i) * batch_time
 
             s = "[Epoch: {} {:4d}/{:4d}] batch_time: {:.2f}s eta: {:s} loss: ".format(
@@ -111,7 +111,7 @@ def train(args, dataloader, model, optimizer, epoch):
                 s += "{}: {:.2e} ".format(k, v)
 
             with open(os.path.join(args.savedir, args.name, "output.txt"), "a") as fp:
-                fp.write(s)
+                fp.write(s+'\n')
             print(s)
             t = time.time()
 
@@ -640,7 +640,7 @@ def parse_args():
 
     # ------------------------ Optimization options ----------------------- #
     parser.add_argument("--optimizer", type=str, default="adam", help="optimizer")
-    parser.add_argument("-l", "--lr", type=float, default=1e-4, help="learning rate")
+    parser.add_argument("-l", "--lr", type=float, default=5e-5, help="learning rate")
     parser.add_argument("--momentum", type=float, default=0.9, help="momentum for SGD")
     parser.add_argument("--weight-decay", type=float, default=1e-4, help="weight decay")
     parser.add_argument(
@@ -655,7 +655,7 @@ def parse_args():
         "-e", "--epochs", type=int, default=600, help="number of epochs to train for"
     )
     parser.add_argument(
-        "-b", "--batch-size", type=int, default=1, help="mini-batch size for training"
+        "-b", "--batch-size", type=int, default=8, help="mini-batch size for training"
     )
     parser.add_argument(
         "--accumulation-steps",
@@ -747,7 +747,7 @@ def _make_experiment(args):
     summary = SummaryWriter(savedir)
 
     # # Save configuration to file
-    with open(os.path.join(savedir, "config.txt"), "w") as fp:
+    with open(os.path.join(savedir, "config.json"), "w") as fp:
         json.dump(args.__dict__, fp)
 
     # # Write config as a text summary
@@ -833,6 +833,7 @@ def main():
         num_workers=1,
         collate_fn=src.data.collate_funcs.collate_nusc_s,
         drop_last=True,
+        pin_memory=True
     )
     val_loader = DataLoader(
         val_data,
@@ -841,6 +842,7 @@ def main():
         num_workers=1,
         collate_fn=src.data.collate_funcs.collate_nusc_s,
         drop_last=True,
+        pin_memory=True
     )
 
     # Build model
@@ -914,7 +916,7 @@ def main():
         model.load_state_dict(ckpt["model"])
         optimizer.load_state_dict(ckpt["optim"])
         scheduler.load_state_dict(ckpt["scheduler"])
-        epoch_ckpt = ckpt["epoch"]
+        epoch_ckpt = ckpt["epoch"]+1
         print("starting training from {}".format(checkpt_fn[-1]))
     else:
         epoch_ckpt = 1
