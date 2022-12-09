@@ -404,7 +404,7 @@ def parse_args():
     parser.add_argument(
         "--load-classes-nusc",
         type=str,
-        nargs=14,
+        nargs=16,
         default=[
             "drivable_area",
             "ped_crossing",
@@ -428,7 +428,7 @@ def parse_args():
     parser.add_argument(
         "--pred-classes-nusc",
         type=str,
-        nargs=12,
+        nargs=14,
         default=[
             "drivable_area",
             "ped_crossing",
