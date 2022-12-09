@@ -148,8 +148,14 @@ def main():
         drop_last=True,
         pin_memory=True
     )
+    ckpt_epoch = 30
 
     model = get_model(args)
+    load_checkpoint(args, model, ckpt_epoch=ckpt_epoch)
     res_200, res_100 = evaluate(model, val_loader)
-    torch.save(res_200, f'{args.name}-val-pred-200x200.pt')
-    torch.save(res_100, f'{args.name}-val-pred-100x100.pt')
+
+    experiment_dir = Path(args.savedir) / args.name
+    results_dir = experiment_dir / 'inference_results'
+    results_dir.mkdir(exist_ok=True)
+    torch.save(res_200, results_dir / f'ckpt-{ckpt_epoch}-val-pred-200x200.pt')
+    torch.save(res_100, results_dir / f'cktp-{ckpt_epoch}-val-pred-100x100.pt')
