@@ -98,7 +98,7 @@ def time_val_epoch(N, fname=None):
 
 def evaluate(model, dataloader):
     model.eval()
-    res_200, res_100 = None, None
+    res_100 = None
     time_epoch_gen = time_val_epoch(N=len(dataloader))
     next(time_epoch_gen)
     for i, ((image, calib, grid2d), (cls_map, vis_mask)) in enumerate(dataloader):
@@ -112,16 +112,14 @@ def evaluate(model, dataloader):
             pred_ms = [pred_200x200, *pred_ms]
             pred_ms_cpu = [pred.detach().cpu() for pred in pred_ms]
 
-            if res_200 is not None:
-                res_200 = torch.cat((res_200, pred_ms_cpu[0]))
+            if res_100 is not None:
                 res_100 = torch.cat((res_100, pred_ms_cpu[1]))
             else:
-                res_200 = torch.cat((pred_ms_cpu[0],))
                 res_100 = torch.cat((pred_ms_cpu[1],))
 
         next(time_epoch_gen)
 
-    return res_200, res_100
+    return res_100
 
 
 def main():
@@ -136,7 +134,7 @@ def main():
         classes=args.load_classes_nusc,
         dataset_size=args.data_size,
         desired_image_size=args.desired_image_size,
-        mini=True,
+        mini=False,
         gt_out_size=(100, 100),
     )
     val_loader = DataLoader(
@@ -148,14 +146,17 @@ def main():
         drop_last=True,
         pin_memory=True
     )
-    ckpt_epoch = 30
 
-    model = get_model(args)
-    load_checkpoint(args, model, ckpt_epoch=ckpt_epoch)
-    res_200, res_100 = evaluate(model, val_loader)
 
-    experiment_dir = Path(args.savedir) / args.name
-    results_dir = experiment_dir / 'inference_results'
-    results_dir.mkdir(exist_ok=True)
-    torch.save(res_200, results_dir / f'ckpt-{ckpt_epoch}-val-pred-200x200.pt')
-    torch.save(res_100, results_dir / f'cktp-{ckpt_epoch}-val-pred-100x100.pt')
+    for ckpt_epoch in list(range(31, 41)):
+        model = get_model(args)
+        load_checkpoint(args, model, ckpt_epoch=ckpt_epoch)
+        res_100 = evaluate(model, val_loader)
+
+        experiment_dir = Path(args.savedir) / args.name
+        results_dir = experiment_dir / 'inference_results'
+        results_dir.mkdir(exist_ok=True)
+        torch.save(res_100, results_dir / f'ckpt-{ckpt_epoch}-val-pred-100x100.pt')
+
+if __name__=='__main__':
+    main()
