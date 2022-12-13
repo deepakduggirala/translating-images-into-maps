@@ -10,6 +10,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+import torchvision.transforms as transforms
 import matplotlib as mpl
 from matplotlib import pyplot as plt
 from torch import optim
@@ -147,7 +148,7 @@ def validate(args, dataloader, model, epoch=0):
 
             # Visualize predictions
             # if epoch % args.val_interval * 4 == 0 and i % 50 == 0:
-            #     vis_img = ToPILImage()(image[0].detach().cpu())
+            #     vis_img = transforms.ToPILImage()(image[0].detach().cpu())
             #     pred_vis = pred_ms[1].detach().cpu()
             #     label_vis = gt_ms[1]
             #
@@ -570,13 +571,8 @@ def str2bool(v):
         raise argparse.ArgumentTypeError("Boolean value expected.")
 
 
-def main():
-    # Parse command line arguments
-    args = parse_args()
-    # args.root = os.path.join(os.getcwd(), args.root)
-    print(args.root)
+def init(args):
     args.savedir = os.path.join(os.getcwd(), args.savedir)
-    print(args.savedir)
 
     # Build depth intervals along Z axis and reverse
     z_range = args.z_intervals
@@ -591,7 +587,13 @@ def main():
     num_gpus = torch.cuda.device_count()
     args.num_gpu = num_gpus
 
-    ### Create experiment ###
+
+def main():
+    # Parse command line arguments
+    args = parse_args()
+    init(args)
+
+    # Create experiment
     # summary = _make_experiment(args)
 
     print("loading val data")
@@ -624,7 +626,7 @@ def main():
         grid_res=args.grid_res,
         pretrained=args.pretrained,
         img_dims=args.desired_image_size,
-        z_range=z_range,
+        z_range=args.z_intervals,
         h_cropped=args.cropped_height,
         dla_norm=args.dla_norm,
         additions_BEVT_linear=args.bevt_linear_additions,
