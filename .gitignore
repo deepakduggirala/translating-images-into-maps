@@ -7,3 +7,5 @@ __pycache__
 experiments
 job_logs
 notebooks/*.pt
+results
+discussion

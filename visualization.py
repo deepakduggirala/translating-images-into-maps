@@ -113,23 +113,23 @@ def visualize_prediction(gt_image, cls_maps, pred, out_path=None, figsize=(15, 7
 
     composite_pred = make_composite(pred)
     pred_colors = cv2.flip(color_components(composite_pred.numpy()), 0)
-    fig, axs = plt.subplots(nrows=2, ncols=2, figsize=figsize)
+    fig, axs = plt.subplots(nrows=1, ncols=3, figsize=figsize)
 
-    ax = axs[0][0]
+    ax = axs[0]
     ax.imshow(gt_image_np)
     ax.set_title('CAM_FRONT')
     ax.axis('off')
 
-    ax = axs[1][0]
+    ax = axs[1]
     ax.imshow(cls_maps_colors)
     ax.set_title('BEV - ground truth')
-    legend_colors = [np.append(c / 255, 1) for c in COLOR_MAP.values()]
-    patches = [mpatches.Patch(color=legend_colors[i], label=label)
-               for i, label in enumerate(color_map_labels.keys())]
-    ax.legend(handles=patches, bbox_to_anchor=(1.05, 1), loc=2, borderaxespad=0.)
+    # legend_colors = [np.append(c / 255, 1) for c in COLOR_MAP.values()]
+    # patches = [mpatches.Patch(color=legend_colors[i], label=label)
+    #            for i, label in enumerate(color_map_labels.keys())]
+    # ax.legend(handles=patches, bbox_to_anchor=(1.05, 1), loc=2, borderaxespad=0.)
     ax.axis('off')
 
-    ax = axs[1][1]
+    ax = axs[2]
     ax.imshow(pred_colors)
     ax.set_title('BEV - prediction')
     legend_colors = [np.append(c / 255, 1) for c in COLOR_MAP.values()]

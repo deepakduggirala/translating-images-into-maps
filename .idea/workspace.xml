@@ -2,10 +2,14 @@
 <project version="4">
   <component name="ChangeListManager">
     <list default="true" id="894d7450-d51e-413e-9be7-00f91aca29c5" name="Changes" comment="">
-      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.gitignore" beforeDir="false" afterPath="$PROJECT_DIR$/.gitignore" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/README.md" beforeDir="false" afterPath="$PROJECT_DIR$/README.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/notebooks/confidence_maps_and_metrics.ipynb" beforeDir="false" afterPath="$PROJECT_DIR$/notebooks/confidence_maps_and_metrics.ipynb" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/notebooks/images_lmdb.ipynb" beforeDir="false" afterPath="$PROJECT_DIR$/notebooks/images_lmdb.ipynb" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/notebooks/visualize_input_output.ipynb" beforeDir="false" afterPath="$PROJECT_DIR$/notebooks/visualize_input_output.ipynb" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/notebooks/visualize_ious.ipynb" beforeDir="false" afterPath="$PROJECT_DIR$/notebooks/visualize_ious.ipynb" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/notebooks/visualize_predictions_trainval.ipynb" beforeDir="false" afterPath="$PROJECT_DIR$/notebooks/visualize_predictions_trainval.ipynb" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/validation.py" beforeDir="false" afterPath="$PROJECT_DIR$/validation.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/visualization.py" beforeDir="false" afterPath="$PROJECT_DIR$/visualization.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
